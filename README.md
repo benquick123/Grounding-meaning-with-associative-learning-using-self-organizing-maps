@@ -1,6 +1,6 @@
 # project_robotic_takac
 
-Using python verssion 3.6.6.
+Using python version 3.6.6.
 
 Some examples of already implemented self-organizing maps:
 - https://github.com/cgorman/tensorflow-som
