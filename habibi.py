@@ -48,6 +48,7 @@ class Hebbian(object):
 
             # calculate distances from bmu2, then calc neighbourhood function (e^(-(distance^2 / sigma^2)))
             # and finally calc learning rate function (includes alpha)
+            ########### perhaps i should update more neurons in SOM1? ###########
             bmu_distances2_squared = tf.cast(tf.reduce_sum(tf.pow(tf.subtract(self.som2.location_vects, tf.stack([bmu_loc2 for i in range(self.som2.m*self.som2.n)])), 2), 1), tf.float32)
             neighbourhood_func = tf.exp(tf.negative(tf.div(bmu_distances2_squared, tf.pow(_sigma, 2))))
             learning_rate = tf.multiply(_alpha, neighbourhood_func)
