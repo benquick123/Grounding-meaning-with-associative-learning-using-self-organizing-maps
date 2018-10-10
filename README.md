@@ -9,3 +9,7 @@ Some examples of already implemented self-organizing maps:
 
 As you can see these implementations use tensorflow, which I also prefer when it comes to neural 
 networks.
+
+<b> Habibi & SOM done </b>
+
+First implementations of learning. Check questions in code.
