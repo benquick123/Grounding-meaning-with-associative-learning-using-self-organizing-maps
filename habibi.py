@@ -54,8 +54,8 @@ class Hebbian(object):
 
             # calculate weight delta (learning rate * SOM2 * SOM1[bmu_index1]) and add it to previous values.
             ########### is it okay if i take mean of the SOM weight? ############
-            ########### is it okay if i only take positive numbers? #############
-            weights_delta = tf.multiply(tf.multiply(learning_rate, tf.reduce_mean(tf.abs(self.som2.weightage_vects), 1)), tf.slice(tf.reduce_mean(tf.abs(self.som1.weightage_vects) , 1), [bmu_index1], [1]))
+            ########### shouldn't all weights be positive? ######################
+            weights_delta = tf.multiply(tf.multiply(learning_rate, tf.reduce_mean(self.som2.weightage_vects, 1)), tf.slice(tf.reduce_mean(self.som1.weightage_vects, 1), [bmu_index1], [1]))
             hebbian_weights_slice = tf.slice(self._hebbian_weights, [bmu_index1, 0], [1, -1])
             new_hebbian_weights = tf.add(hebbian_weights_slice, weights_delta)
 
@@ -63,6 +63,7 @@ class Hebbian(object):
             new_hebbian_weights = tf.div(new_hebbian_weights, tf.reduce_sum(new_hebbian_weights))
 
             # first pad new weights, then replace all zeros with old values. overwrite old values with new.
+            ########### change so it reflects reverse weight strengt? ###########
             new_hebbian_weights = tf.pad(new_hebbian_weights, [[bmu_index1, (self.som1.m*self.som1.n) - bmu_index1 - 1], [0, 0]])
             new_hebbian_weights = tf.where(tf.equal(new_hebbian_weights, 0), self._hebbian_weights, new_hebbian_weights)
             self._training_op = tf.assign(self._hebbian_weights, new_hebbian_weights)
