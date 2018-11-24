@@ -13,7 +13,7 @@ class WordXCategory(object):
         self.som_size = som_size
         self.n_categories = n_categories
 
-        self._sess = tf.Session()
+        self._sess = None
 
         self.words_x_categories = tf.Variable(tf.zeros([n_categories, word_vector.dim]), dtype=tf.float32)
 
@@ -31,9 +31,6 @@ class WordXCategory(object):
 
         entropy_sums = tf.reduce_sum(self.words_x_categories, axis=1)
         self.normalize_op = tf.div(self.words_x_categories, tf.transpose(tf.stack([entropy_sums for i in range(word_vector.dim)])))
-
-        init_op = tf.global_variables_initializer()
-        self._sess.run(init_op)
 
     def entropy(self, hebb_weights):
         return self._sess.run(self.entropy_op, feed_dict={self._hebbian_weights: hebb_weights})
