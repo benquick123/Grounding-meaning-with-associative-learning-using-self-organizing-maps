@@ -30,7 +30,7 @@ class WordXCategory(object):
         self.update_op = tf.assign(self.words_x_categories, new_inverse_entropies)
 
         entropy_sums = tf.reduce_sum(self.words_x_categories, axis=1)
-        self.normalize_op = tf.div(self.words_x_categories, tf.transpose(tf.stack([entropy_sums for i in range(word_vector.dim)])))
+        self.normalize_op = tf.assign(self.words_x_categories, tf.div(self.words_x_categories, tf.transpose(tf.stack([entropy_sums for i in range(word_vector.dim)]))))
 
     def entropy(self, hebb_weights):
         return self._sess.run(self.entropy_op, feed_dict={self._hebbian_weights: hebb_weights})
@@ -41,7 +41,7 @@ class WordXCategory(object):
     def update_words_x_categories(self, new_inverse_entropies, index, alpha=1.0):
         return self._sess.run(self.update_op, feed_dict={self.new_inverse_entropies: new_inverse_entropies, self.alpha: alpha, self.index: index})
 
-    def normalize_all(self, entropy_weights_all):
+    def normalize_all(self):
         return self._sess.run(self.normalize_op)
 
 
@@ -61,6 +61,6 @@ if __name__ == "__main__":
         inv_entropy = word_to_meaning.inverse_entropy(word_to_meaning.entropy(h))
         entropy_weights = word_to_meaning.update_words_x_categories(inv_entropy, i)
         print(entropy_weights)
-    entropy_weights = word_to_meaning.normalize_all(entropy_weights)
+    entropy_weights = word_to_meaning.normalize_all()
     pickle.dump(entropy_weights, open("entropy_weights.pickle", "wb"))
     exit()

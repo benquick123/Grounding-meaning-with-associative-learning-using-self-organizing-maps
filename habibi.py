@@ -41,13 +41,15 @@ class Hebbian(object):
         self.input_vect2 = tf.placeholder("float", [self.som.dim])
 
         self.input_iter = tf.placeholder("float")
+        self.category_probability = tf.placeholder("float")
 
         # find bmu for SOM (location, no index needed)
         bmu_loc = som.get_bmu_location(self.input_vect2)
 
         # compute learning rate (based on current iteration) and adjust alpha & sigma accordingly
+        # also added: _alpha reflects probability that input (just one word) is of certain type
         learning_rate = tf.subtract(1.0, tf.div(self.input_iter, self.n_epochs))
-        _alpha = tf.multiply(self.alpha, learning_rate)
+        _alpha = tf.multiply(tf.multiply(self.alpha, learning_rate), self.category_probability)
         _sigma = tf.multiply(self.sigma, learning_rate)
 
         # calculate distances from bmu2, then calc neighbourhood function (e^(-(distance^2 / sigma^2)))
@@ -85,14 +87,6 @@ class Hebbian(object):
         # get error
         self._error_op = tf.sqrt(tf.reduce_sum(tf.pow(tf.subtract(self._hebbian_weights_WM, tf.transpose(self._hebbian_weights_MW)), 2)))
 
-        # calculating entropy and saving it to seperate matrix
-        """weights_log_n = tf.div(tf.log(self._hebbian_weights_WM), tf.log(tf.cast([self.som.m * self.som.n], dtype=tf.float32)))
-        entropy = tf.reshape(tf.subtract(1.0, tf.negative(tf.reduce_sum(tf.multiply(self._hebbian_weights_WM, weights_log_n), axis=1))), [1, -1])
-        entropy = tf.where(tf.equal(entropy, np.nan), [tf.stack([0.0 for i in range(self.word_vector.dim)])], entropy)
-        new_word_type_matrix = tf.pad(entropy, [[self.instance_number, Hebbian.n_instances - self.instance_number - 1], [0, 0]])
-
-        self._update_word_type_matrix_op = tf.assign(Hebbian.word_type_matrix, new_word_type_matrix)"""
-
     def train(self, inputs1, inputs2, epoch_no, train_som=False):
         hebb_result = None
         som_result = None
@@ -110,9 +104,9 @@ class Hebbian(object):
                 _som_error, som_result = self.som.fit(input2, epoch_no)
                 som_error.append(_som_error)
 
-            _hebb_error, hebb_result = self.fit(input1, input2, epoch_no)
+            beta = 1.0
+            _hebb_error, hebb_result = self.fit(input1, input2, beta, epoch_no)
             hebb_error.append(_hebb_error)
-
 
         hebb_error = np.mean(hebb_error)
         if train_som:
@@ -120,8 +114,8 @@ class Hebbian(object):
             return som_error, som_result, hebb_error, hebb_result
         return hebb_error, hebb_result
 
-    def fit(self, input1, input2, curr_iteration):
-        weights_delta = self._sess.run(self._weights_delta_op, feed_dict={self.input_vect1: input1, self.input_vect2: input2, self.input_iter: curr_iteration})
+    def fit(self, input1, input2, category_probability, curr_iteration):
+        weights_delta = self._sess.run(self._weights_delta_op, feed_dict={self.input_vect1: input1, self.input_vect2: input2, self.input_iter: curr_iteration, self.category_probability: category_probability})
         result_WM = self._sess.run(self._training_WM_op, feed_dict={self._weights_delta: weights_delta})
         result_MW = self._sess.run(self._training_MW_op, feed_dict={self._weights_delta: weights_delta})
         error = self._sess.run(self._error_op)

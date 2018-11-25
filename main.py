@@ -2,6 +2,7 @@ from SOM import SOM
 from habibi import Hebbian
 from data_generator import WordVector
 from word_x_category import WordXCategory
+from type_x_probability import TypeXProbability
 
 import pickle
 import time
@@ -13,7 +14,9 @@ def prepare():
     n_iter = 50
     n_epochs = 200
     n_categories = 4
+    max_words = 4
     alpha = 0.6
+    input_threshold = 0.9
 
     # initialize SOMs
     position_som = SOM(16, 16, 3, alpha=alpha, n_iterations=n_iter, n_epochs=n_epochs)
@@ -33,55 +36,74 @@ def prepare():
     # hebbs = [hebb2]
 
     word_x_category = WordXCategory(word_vector, position_som.m*position_som.n, n_categories)
+    type_x_probability = TypeXProbability(word_vector, word_x_category, n_categories, max_words)
 
     sess = tf.Session()
 
     init_op = tf.global_variables_initializer()
     sess.run(init_op)
 
-    set_sessions([soms, hebbs], sess)
-    return word_vector, soms, hebbs, word_x_category, n_iter, n_epochs
+    set_sessions([soms, hebbs, word_x_category, type_x_probability], sess)
+    return word_vector, soms, hebbs, word_x_category, type_x_probability, n_iter, n_epochs, input_threshold
 
 
-def train(word_vector, soms, hebbs, word_x_category, n_iter, n_epochs, save=False):
+def train_iteration(word_vector, soms, hebbs, word_x_category, type_x_probability, epoch_no, input_threshold):
+    som_weights = [None, None, None, None]
+    hebb_weights = [None, None, None, None]
+    som_error, hebb_error = 0, 0
+
+    string_vect, vision_vect = word_vector.generate_new_input_pair()
+
+    input_indices = np.argwhere(string_vect > input_threshold)
+    input_length = len(input_indices)
+
+    string_vect_split = np.zeros((input_length, len(string_vect)))
+    string_vect_split[list(range(len(input_indices))), input_indices] = string_vect[input_indices]
+
+    type_probabilities = type_x_probability.get_type_probabilities(input_length)
+
+    for cat in range(type_x_probability.n_categories):
+        som_error, som_weights[cat] = soms[cat].fit(vision_vect, epoch_no)
+
+        for word_pos, one_word_vector in enumerate(string_vect_split):
+            category_probability = type_probabilities[word_pos][cat]
+            hebb_error, hebb_weights[cat] = hebbs[cat].fit(one_word_vector, vision_vect, category_probability, epoch_no)
+
+        # calculate words_x_categories table
+        inv_entropy = word_x_category.inverse_entropy(word_x_category.entropy(hebb_weights[cat][0]))
+        word_x_category.update_words_x_categories(inv_entropy, cat, alpha=0.25)
+
+    # ... & normalize
+    word_x_category.normalize_all()
+
+    # calculate types_x_probabilities & then normalize
+    type_x_probability.update_prob_array(alpha=0.25)
+    type_x_probability.normalize_all()
+    return som_error, som_weights, hebb_error, hebb_weights
+
+
+def train(word_vector, soms, hebbs, word_x_category, type_x_probability, n_iter, n_epochs, input_threshold, save=False):
     # for loops bla bla bla
     # get input vectors
 
     train_type = ["position", "size", "color", "shape"]
     som_weights = [None, None, None, None]
     hebb_weights = [None, None, None, None]
-    word_x_category_table = None
-    lenght_x_probability = None
+    som_error, hebb_error = 0, 0
 
-    for i in range(n_epochs):
-        print("### Epoch:", i, "/", n_epochs, "###")
-        string_vectors, vision_vectors = [], []
-        for j in range(n_iter):
-            string_vector, vision_vector = word_vector.generate_new_input_pair()
-            string_vectors.append(string_vector)
-            vision_vectors.append(vision_vector)
+    for epoch_no in range(n_epochs):
+        print("### Epoch:", epoch_no, "/", n_epochs, "###")
 
-        vision_vectors = np.array(vision_vectors).transpose()
-        # vision_vectors = [vision_vectors[0]]
+        for iter_no in range(n_iter):
+            som_error, som_weights, hebb_error, hebb_weights = train_iteration(word_vector, soms, hebbs, word_x_category, type_x_probability, epoch_no, input_threshold)
 
-        for j, (som, som_input, hebb) in enumerate(zip(soms, vision_vectors, hebbs)):
-            # som_error, som_weights[j] = som.train(som_input, i)
-            som_error, som_weights[j], hebb_error, hebb_weights[j] = hebb.train(string_vectors, som_input, i, train_som=True)
-            inv_entropy = word_x_category.inverse_entropy(word_x_category.entropy(hebb_weights[j][0]))
-            word_x_category_table = word_x_category.update_words_x_categories(inv_entropy, j, alpha=0.4)
-
-
-            print("SOM error -", train_type[j], "-", som_error)
-            print("HEBB error -", train_type[j], "-", hebb_error)
-        print()
-
-        # normalize word X category table
-        word_x_category_table = word_x_category.normalize_all(word_x_category_table)
+        for cat in range(type_x_probability.n_categories):
+            print("SOM error -", train_type[cat], "-", som_error)
+            print("HEBB error -", train_type[cat], "-", hebb_error)
 
     if save:
         pickle.dump(som_weights, open("som_weights_" + str(int(time.time())) + ".pickle", "wb"))
         pickle.dump(hebb_weights, open("hebb_weights_" + str(int(time.time())) + ".pickle", "wb"))
-        # pickle.dump(word_x_category_table, open("word_X_category_" + str(int(time.time())) + ".pickle", "wb"))
 
 
 def set_sessions(objects, sess):
@@ -100,6 +122,6 @@ if __name__ == "__main__":
     # do things
 
     ######### training #########
-    word_vector, soms, hebbs, word_x_category, n_iter, n_epochs = prepare()
-    train(word_vector, soms, hebbs, word_x_category, n_iter, n_epochs, save=True)
+    word_vector, soms, hebbs, word_x_category, type_x_probability, n_iter, n_epochs, input_threshold = prepare()
+    train(word_vector, soms, hebbs, word_x_category, type_x_probability, n_iter, n_epochs, save=True)
     exit()

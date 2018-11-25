@@ -13,3 +13,7 @@ networks.
 <b> Habibi & SOM done </b>
 
 First implementations of learning. Check questions in code.
+
+<b> Close to final version </b>
+
+How does the system know how many words were presented to it?

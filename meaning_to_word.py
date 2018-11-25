@@ -4,7 +4,6 @@ import pickle
 import itertools
 
 from data_generator import WordVector
-from word_to_meaning import WordToMeaning
 
 
 class MeaningToWord(object):
