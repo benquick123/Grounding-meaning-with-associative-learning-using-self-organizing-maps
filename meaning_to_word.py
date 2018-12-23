@@ -6,81 +6,100 @@ import itertools
 from data_generator import WordVector
 
 
-class MeaningToWord(object):
+class Meaning2Word(object):
+    """
+    for reconstruction to work with current implementation, all SOMs must have the same size.
+    """
 
-    def __init__(self, word_vector, n_vision_vectors):
-        self.word_vectoer = word_vector
-        self.n_vision_vectors = n_vision_vectors
+    def __init__(self, hebb_filename, som_filename, wxc_filename, input_vector_dim, som_dim, n_categories):
+        self.input_vector_dim = input_vector_dim
+        self.som_dim = som_dim
+        self.n_categories = n_categories
 
-        h = pickle.load(open("hebb_weights_1540937327.pickle", "rb"))
-        self.hebb_weights = []
-        for _h in h:
-            self.hebb_weights.append(_h[0])
-        self.hebb_weights = np.array(self.hebb_weights)
-
-        self.som_weights = pickle.load(open("som_weights_1540937327.pickle", "rb"))
+        hebb_weights = pickle.load(open(hebb_filename, "rb"))
+        self.hebb_weights = np.array([h[1] for h in hebb_weights])
+        self.som_filename = som_filename
+        self.som_weights = pickle.load(open(som_filename, "rb"))[0]
+        self.wxc_weights = np.array(pickle.load(open(wxc_filename, "rb")))
 
         self._sess = tf.Session()
 
-        # TODO: change code to accept any number of modalities / SOMs.
-        self.pos_vision_vector = tf.placeholder("float", [self.som_weights[0].shape[1]])
-        self.size_vision_vector = tf.placeholder("float", [self.som_weights[1].shape[1]])
-        self.color_vision_vector = tf.placeholder("float", [self.som_weights[2].shape[1]])
-        self.shape_vision_vector = tf.placeholder("float", [self.som_weights[3].shape[1]])
+        self.som_number = tf.placeholder(tf.int32)
+        self.bmu_index = tf.placeholder(tf.int32)
 
-        pos_activations = self.get_activations(self.som_weights[0], self.pos_vision_vector)
-        size_activations = self.get_activations(self.som_weights[1], self.size_vision_vector)
-        color_activations = self.get_activations(self.som_weights[2], self.color_vision_vector)
-        shape_activations = self.get_activations(self.som_weights[3], self.shape_vision_vector)
+        # this gives just weights of dimension (16,)
+        hebb_slice = tf.reshape(tf.slice(self.hebb_weights, [self.som_number, self.bmu_index, 0], [1, 1, -1]), [-1, input_vector_dim])
+        partial_input_vector = tf.multiply(hebb_slice, tf.slice(self.wxc_weights, [self.som_number, 0], [1, -1]))
+        partial_input_vector = tf.div(partial_input_vector, tf.reduce_sum(partial_input_vector))
 
-        pos_index = tf.argmax(tf.reduce_sum(tf.multiply(tf.transpose(self.hebb_weights[0]), tf.transpose(tf.stack([pos_activations for i in range(self.hebb_weights[0].shape[0])]))), axis=0))
-        size_index = tf.argmax(tf.reduce_sum(tf.multiply(tf.transpose(self.hebb_weights[1]), tf.transpose(tf.stack([size_activations for i in range(self.hebb_weights[1].shape[0])]))), axis=0))
-        color_index = tf.argmax(tf.reduce_sum(tf.multiply(tf.transpose(self.hebb_weights[2]), tf.transpose(tf.stack([color_activations for i in range(self.hebb_weights[2].shape[0])]))), axis=0))
-        shape_index = tf.argmax(tf.reduce_sum(tf.multiply(tf.transpose(self.hebb_weights[3]), tf.transpose(tf.stack([shape_activations for i in range(self.hebb_weights[3].shape[0])]))), axis=0))
+        self.partial_input_vector_op = tf.reshape(partial_input_vector, [-1])       # tf.div(partial_input_vector, tf.reduce_sum(partial_input_vector))
 
-        indices = [[pos_index], [size_index], [color_index], [shape_index]]
-        values = [1.0, 1.0, 1.0, 1.0]
-        self.output_word_vector_op = tf.sparse_tensor_to_dense(tf.SparseTensor(indices, values, [word_vector.dim]))
+        self._sess.run(tf.global_variables_initializer())
 
-        init_op = tf.global_variables_initializer()
-        self._sess.run(init_op)
+    def get_ed2(self, vect_input):
+        return tf.reduce_sum(tf.pow(tf.subtract(self.som_weights, tf.stack([vect_input for i in range(self.som_dim)])), 2), 1)
 
-    @staticmethod
-    def get_ed2(som_weights, vect_input):
-        """
-        Calculates squared Euclidean distance between input and every neuron
-        """
+    def get_bmu_index(self, vect_input):
+        return tf.argmin(tf.sqrt(self.get_ed2(vect_input)), 0)
 
-        return tf.reduce_sum(tf.pow(tf.subtract(som_weights, tf.stack([vect_input for i in range(som_weights.shape[0])])), 2), 1)
+    def get_partial_input_vector(self, vision_vector, i):
+        self.som_weights = pickle.load(open(self.som_filename, "rb"))[i]
+        bmu_index = self.get_bmu_index(vision_vector[i])
+        bmu_index = self._sess.run(bmu_index)
+        partial_input_vector = self._sess.run(self.partial_input_vector_op, feed_dict={self.som_number: i, self.bmu_index: bmu_index})
+        return partial_input_vector
 
-    def get_activations(self, som_weights, vect_input, alpha=1.0):
-        """
-        Calculates map activations
-        """
+    def get_input_vector(self, vision_vector):
+        input_vector = np.zeros(self.input_vector_dim)
+        for i in range(self.n_categories):
+            partial_input_vector = self.get_partial_input_vector(vision_vector, i)
+            # print(partial_input_vector)
+            input_vector += partial_input_vector
 
-        # calculate SOM activations
-        som_activations = tf.exp(tf.multiply(tf.negative(alpha), self.get_ed2(som_weights, vect_input)))
-        # ...normalize and return
-        return tf.div(som_activations, tf.reduce_sum(som_activations))
+        # input_vector = input_vector / np.sum(input_vector)
+        return input_vector
 
-    def get_word_vector(self, vision_vector):
-        return self._sess.run(self.output_word_vector_op, feed_dict={self.pos_vision_vector: vision_vector[0], self.size_vision_vector: vision_vector[1], self.color_vision_vector: vision_vector[2], self.shape_vision_vector: vision_vector[3]})
+    def get_best_match(self, vision_vector, input_vectors):
+        pass
 
 
 if __name__ == "__main__":
-    n_vision_vectors = 3
+    hebb_f = "weights/hebb_weights_1544576700.pickle"
+    som_f = "weights/som_weights_1544576700.pickle"
+    wxc_f = "weights/word_x_category_1544576700.pickle"
+
     word_vector = WordVector()
-    meaning_to_word = MeaningToWord(word_vector, n_vision_vectors)
+    meaning2word = Meaning2Word(hebb_f, som_f, wxc_f, word_vector.dim, 256, 4)
+    distances = []
 
-    input_pair = word_vector.generate_new_input_pair(full=True)
-    input_vector = input_pair[0]
+    word_indices = np.array([0, 4, 6, 12])
 
-    # get input vector based on vision_input
-    print(input_vector)
-    result_vector = meaning_to_word.get_word_vector(input_pair[1])
-    print(result_vector)
-    print()
+    for i in range(100):
+        # meaning2word = Meaning2Word(hebb_f, som_f, wxc_f, word_vector.dim, 256, 4)
+        input_vector, vision_vector = word_vector.generate_new_input_pair(full=True)
+
+        input_array = np.zeros((len(word_indices), word_vector.dim))
+        for j in range(len(word_indices)):
+            try:
+                input_array[j, word_indices[j]:word_indices[j+1]] = input_vector[word_indices[j]:word_indices[j+1]]
+            except IndexError:
+                input_array[j, word_indices[j]:] = input_vector[word_indices[j]:]
+            partial_input = meaning2word.get_partial_input_vector(vision_vector, j)
+            print(partial_input.tolist())
+            print(input_array[j, :])
+            KL = KL_divergence(input_array[j, :], partial_input)
+            print("KL:", KL)
+            print()
 
 
+        # print(vision_vector)
+        # print()
+        reconstructed_vector = meaning2word.get_input_vector(vision_vector)
+        # print("predicted:", reconstructed_vector)
+        # print("original:", input_vector)
+        # print("distance:", distance(reconstructed_vector, input_vector))
+        distances.append(distance(reconstructed_vector, input_vector))
+        # print(distances)
 
-
+    avg_distance = np.mean(distances)
+    print(avg_distance)

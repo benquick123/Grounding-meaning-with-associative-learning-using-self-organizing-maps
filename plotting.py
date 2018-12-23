@@ -76,6 +76,7 @@ def show_mapping_to_word_vector(h):
 def plot_SOMs(filename):
     # PLOTTING SOMS
     _s = pickle.load(open(filename, "rb"))[0]
+    _s = (_s + 1) / 2
     show_organization(_s, "Position SOM")
     _s = pickle.load(open(filename, "rb"))[1]
     show_organization(_s, "Size SOM")
@@ -143,15 +144,101 @@ def entropy_plotting(filename):
     plt.show()
 
 
-if __name__ == "__main__":
-    hebb_f = "hebb_weights_1542666542.pickle"
-    som_f = "som_weights_1542666542.pickle"
-    entropy_f = "word_X_category1542724910.pickle"
+def type_plotting(filename):
+    type_weights = pickle.load(open(filename, "rb"))
+    f, subplts = plt.subplots(nrows=len(type_weights))
 
-    entropy_plotting(entropy_f)
-    exit()
+    for i in range(4):
+        v = type_weights[i]
+        img = []
+        for j, el in enumerate(v):
+            a = np.array(list(el) * 3).reshape((-1, 4)).transpose()
+            img.append(a)
+        subplts[i].imshow(img)
+
+    plt.show()
+
+
+def plot_per_epoch(data, labels, title="", ylim=None):
+    for row, label in zip(data, labels):
+        r = list(range(len(row)))
+        plt.plot(r, row, label=label)
+    plt.title(title)
+    plt.xlabel("epoch #")
+    if ylim is not None:
+        plt.ylim(ylim)
+    else:
+        plt.ylim(0)
+    plt.xlim(0, len(data[0]))
+    plt.legend()
+    plt.show()
+
+
+def plot_multiple_per_epoch(filename):
+    som_errors, hebb_dist, wm_entropies, mw_entropies, wxc_learn, txp_learn = pickle.load(open(filename, "rb"))
+    labels = ["position", "size", "color", "type"]
+
+    # SOM errors
+    plot_per_epoch(som_errors, labels, "Average error per epoch (1000 epochs)")
+
+    # HEBB distances
+    plot_per_epoch(hebb_dist, labels, "Distance between W -> M and M -> W hebbian weights")
+
+    # HEBB W-M entropies
+    wm_entropies = [[np.mean(wm_entropies_cat)
+                     for wm_entropies_cat in wm_entropies[i]] for i in range(len(wm_entropies))]
+    # wm_entropies = [[entropy([wm_entropies_cat])
+    #                  for wm_entropies_cat in wm_entropies[i]] for i in range(len(wm_entropies))]
+    plot_per_epoch(wm_entropies, labels, "W -> M average entropy", ylim=(0.75, 1.0))
+
+    # HEBB M-W entropies
+    mw_entropies = [[np.mean(mw_entropies_cat)
+                     for mw_entropies_cat in mw_entropies[i]] for i in range(len(mw_entropies))]
+    # mw_entropies = [[entropy([mw_entropies_cat])
+    #                  for mw_entropies_cat in mw_entropies[i]] for i in range(len(mw_entropies))]
+    plot_per_epoch(mw_entropies, labels, "M --> W average entropy", ylim=(0.75, 1.0))
+
+    # WORD_x_CATEGORY entropies
+    wxc_learn = np.array(wxc_learn)
+    # wxc_learn = [entropy(d) for d in wxc_learn[np.arange(0, wxc_learn.shape[0], 4).tolist()]]
+    wxc_learn = [entropy(d) for d in wxc_learn]
+    plot_per_epoch([wxc_learn], ["w_x_c average entropies"], title="Bootstraping (word x category) average entropies",
+                   ylim=(0.6, 1.0))
+
+    # TYPE_x_PROBABILITY entropies
+    txp_learn = np.array(txp_learn)
+    # txp_learn = txp_learn[np.arange(0, txp_learn.shape[0], 4).tolist()]
+    # _txp_learn = [[], [], [], []]
+    txp_learn = np.array([[entropy(epoch[i]) for i in range(len(epoch))] for epoch in txp_learn]).transpose()
+    plot_per_epoch(txp_learn, ["phrase length: 1", "phrase length: 2", "phrase length: 3", "phrase length: 4"],
+                   title="Bootstraping (type x probability) average entropies", ylim=(0.4, 1.0))
+
+
+
+def entropy(data):
+    data = np.array(data)
+    a = []
+    for row in data:
+        a.append(-np.sum(row * (np.log(row) / np.log(len(row)))))
+    return np.mean(a)
+
+
+if __name__ == "__main__":
+    hebb_f = "weights/hebb_weights_1544576700.pickle"
+    som_f = "weights/som_weights_1544576700.pickle "
+    type_f = "weights/type_x_probability_1544576700.pickle"
+    entropy_f = "weights/word_x_category_1544576700.pickle"
+    error_f = "errors_w_bootstraping_1544576700.pickle"
+
+    # plot_multiple_per_epoch(error_f)
+    # exit()
+
+    # entropy_plotting(entropy_f)
+    # type_plotting(type_f)
+    # exit()
 
     plot_SOMs(som_f)
+    exit()
     plot_WM(hebb_f)
     plot_MW(hebb_f)
 

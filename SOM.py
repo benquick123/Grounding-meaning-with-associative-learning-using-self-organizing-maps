@@ -11,7 +11,7 @@ class SOM(object):
     # To check if the SOM has been trained
     _trained = False
  
-    def __init__(self, m, n, dim, n_iterations=10, n_epochs=100, alpha=None, sigma=None):
+    def __init__(self, m, n, dim, c=1.0, n_iterations=10, n_episodes=100, alpha=None, sigma=None):
         """
         Initializes all necessary components of the TensorFlow
         Graph.
@@ -31,6 +31,7 @@ class SOM(object):
         self.m = m
         self.n = n
         self.dim = dim
+        self.c = c
         if alpha is None:
             self.alpha = 0.3
         else:
@@ -40,7 +41,7 @@ class SOM(object):
         else:
             self.sigma = float(sigma)
         self.n_iterations = abs(int(n_iterations))
-        self.n_epochs = abs(int(n_epochs))
+        self.n_episodes = abs(int(n_episodes))
 
         # initialize session to None, set it right later.
         self._sess = None
@@ -73,7 +74,7 @@ class SOM(object):
         bmu_loc = self.get_bmu_location(self.vect_input)
 
         # To compute the alpha and sigma values based on iteration number
-        learning_rate_op = tf.subtract(1.0, tf.div(self.iter_input, self.n_epochs))
+        learning_rate_op = tf.subtract(1.0, tf.div(self.iter_input, self.n_episodes))
         _alpha_op = tf.multiply(self.alpha, learning_rate_op)
         _sigma_op = tf.multiply(self.sigma, learning_rate_op)
 
@@ -82,6 +83,7 @@ class SOM(object):
         # wrt BMU.
         bmu_distance_squares = tf.reduce_sum(tf.pow(tf.subtract(self.location_vects, tf.stack([bmu_loc for i in range(m*n)])), 2), 1)
         neighbourhood_func = tf.exp(tf.negative(tf.div(tf.cast(bmu_distance_squares, "float32"), tf.pow(_sigma_op, 2))))
+        # neighbourhood_func = tf.exp(tf.multiply(tf.negative(self.c), bmu_distance_squares))
         learning_rate_op = tf.multiply(_alpha_op, neighbourhood_func)
 
         # Finally, the op that will use learning_rate_op to update
@@ -108,13 +110,13 @@ class SOM(object):
 
         return tf.reduce_sum(tf.pow(tf.subtract(self.weightage_vects, tf.stack([vect_input for i in range(self.m*self.n)])), 2), 1)
 
-    def get_activations(self, vect_input, alpha=1.0):
+    def get_activations(self, vect_input):
         """
         Calculates map activations
         """
 
         # calculate SOM activations
-        som_activations = tf.exp(tf.multiply(tf.negative(alpha), self.get_ed2(vect_input)))
+        som_activations = tf.exp(tf.multiply(tf.negative(self.c), self.get_ed2(vect_input)))
         # ...normalize and return
         return tf.div(som_activations, tf.reduce_sum(som_activations))
 
@@ -136,7 +138,7 @@ class SOM(object):
         slice_input = tf.pad(tf.reshape(bmu_index, [1]), np.array([[0, 1]]))
         return tf.reshape(tf.slice(self.location_vects, slice_input, tf.constant(np.array([1, 2]), dtype=tf.int64)), [2])
  
-    def train(self, input_vects, epoch_no):
+    def train(self, input_vects, episode_no):
         """
         Trains the SOM.
         'input_vects' should be an iterable of 1-D NumPy arrays with
@@ -152,7 +154,7 @@ class SOM(object):
             input_vect = input_vects[iter_no]
             if input_vect is None:
                 continue
-            _error, result = self.fit(input_vect, epoch_no)
+            _error, result = self.fit(input_vect, episode_no)
 
             error.append(_error)
 

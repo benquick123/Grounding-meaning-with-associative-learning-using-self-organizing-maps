@@ -11,15 +11,15 @@ class Hebbian(object):
     word_type_matrix = None
     n_instances = 4
 
-    def __init__(self, word_vector, som, instance_number, n_iterations=10, n_epochs=100, alpha=None, sigma=None, activation_map_constant=1.0):
+    def __init__(self, word_vector, som, instance_number, n_iterations=10, n_episodes=100, alpha=None, sigma=None, activation_map_constant=1.0):
         self.som = som
         self.word_vector = word_vector
         self.instance_number = instance_number
 
         self.n_iterations = abs(int(n_iterations))
-        self.n_epochs = n_epochs
+        self.n_episodes = n_episodes
         if alpha is None:
-            self.alpha = 0.3
+            self.alpha = 0.2
         else:
             self.alpha = alpha
 
@@ -30,8 +30,6 @@ class Hebbian(object):
 
         # initialize session to None, set it to actual session later.
         self._sess = None
-
-        Hebbian.word_type_matrix = tf.Variable(tf.zeros([Hebbian.n_instances, self.word_vector.dim]), dtype=tf.float32)
 
         self._hebbian_weights_WM = tf.Variable(tf.zeros([self.word_vector.dim, self.som.m*self.som.n]), dtype=tf.float32)
         self._hebbian_weights_MW = tf.Variable(tf.zeros([self.som.m*self.som.n, self.word_vector.dim]), dtype=tf.float32)
@@ -48,8 +46,9 @@ class Hebbian(object):
 
         # compute learning rate (based on current iteration) and adjust alpha & sigma accordingly
         # also added: _alpha reflects probability that input (just one word) is of certain type
-        learning_rate = tf.subtract(1.0, tf.div(self.input_iter, self.n_epochs))
+        learning_rate = tf.subtract(1.0, tf.div(self.input_iter, self.n_episodes))
         _alpha = tf.multiply(tf.multiply(self.alpha, learning_rate), self.category_probability)
+        # _alpha = tf.multiply(self.alpha, learning_rate)             # COMMENT THIS!!!
         _sigma = tf.multiply(self.sigma, learning_rate)
 
         # calculate distances from bmu2, then calc neighbourhood function (e^(-(distance^2 / sigma^2)))
@@ -59,7 +58,7 @@ class Hebbian(object):
         learning_rate = tf.multiply(_alpha, neighbourhood_func)
 
         # get activation map
-        som_activation_map = som.get_activations(self.input_vect2, activation_map_constant)
+        som_activation_map = som.get_activations(self.input_vect2)
 
         # calculate weight delta (learning rate * som_activations * word_vector) and add it to previous values
         self._weights_delta_op = tf.multiply(tf.reshape(self.input_vect1, (self.word_vector.dim, 1)), tf.reshape(tf.multiply(learning_rate, som_activation_map), (1, self.som.m*self.som.n)))
@@ -87,7 +86,7 @@ class Hebbian(object):
         # get error
         self._error_op = tf.sqrt(tf.reduce_sum(tf.pow(tf.subtract(self._hebbian_weights_WM, tf.transpose(self._hebbian_weights_MW)), 2)))
 
-    def train(self, inputs1, inputs2, epoch_no, train_som=False):
+    def train(self, inputs1, inputs2, episode_no, train_som=False):
         hebb_result = None
         som_result = None
         hebb_error = []
@@ -101,11 +100,11 @@ class Hebbian(object):
                 print("THIS SHOULDN'T HAPPEN")
                 continue
             if train_som:
-                _som_error, som_result = self.som.fit(input2, epoch_no)
+                _som_error, som_result = self.som.fit(input2, episode_no)
                 som_error.append(_som_error)
 
             beta = 1.0
-            _hebb_error, hebb_result = self.fit(input1, input2, beta, epoch_no)
+            _hebb_error, hebb_result = self.fit(input1, input2, beta, episode_no)
             hebb_error.append(_hebb_error)
 
         hebb_error = np.mean(hebb_error)

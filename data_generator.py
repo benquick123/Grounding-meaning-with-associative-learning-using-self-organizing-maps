@@ -1,4 +1,5 @@
 import numpy as np
+from collections import Counter
 
 
 class WordVector(object):
@@ -14,8 +15,11 @@ class WordVector(object):
         # self.properties = [(self.sizes, self._generate_sizes)]
 
         self.vocabulary = []
+        self.cat_indices = [0]
         for a, f in self.properties:
             self.vocabulary += a
+            self.cat_indices.append(self.cat_indices[-1] + len(a))
+        self.cat_indices = self.cat_indices[:-1]
         self.vocabulary = {a: i for i, a in enumerate(self.vocabulary)}
         self.reverse_dict = {i: a for a, i in self.vocabulary.items()}
 
@@ -24,6 +28,7 @@ class WordVector(object):
         self.string_vector = [""]
         self.word_input = None
         self.vision_data = [None, None, None, None]
+        self.input_pairs_history = []
 
     @staticmethod
     def _generate_position(position):
@@ -59,22 +64,22 @@ class WordVector(object):
         g = 0
         b = 0
         if color == "red":
-            r = np.random.uniform(0, 1)
+            r = np.random.uniform(0.7, 1)
         elif color == "blue":
-            b = np.random.uniform(0, 1)
+            b = np.random.uniform(0.7, 1)
         elif color == "green":
-            g = np.random.uniform(0, 1)
+            g = np.random.uniform(0.7, 1)
         elif color == "purple":
-            r = np.random.uniform(0.25, 0.75)
-            b = np.random.uniform(0.25, 0.75)
+            r = np.random.uniform(0.425, 0.575)
+            b = np.random.uniform(0.425, 0.575)
         elif color == "white":
-            r = np.random.uniform(0.75, 1)
-            g = np.random.uniform(0.75, 1)
-            b = np.random.uniform(0.75, 1)
+            r = np.random.uniform(0.9, 1)
+            g = np.random.uniform(0.9, 1)
+            b = np.random.uniform(0.9, 1)
         elif color == "black":
-            r = np.random.uniform(0, 0.25)
-            g = np.random.uniform(0, 0.25)
-            b = np.random.uniform(0, 0.25)
+            r = np.random.uniform(0, 0.1)
+            g = np.random.uniform(0, 0.1)
+            b = np.random.uniform(0, 0.1)
         return [r, g, b]
 
     @staticmethod
@@ -108,11 +113,10 @@ class WordVector(object):
     def generate_string(self, one_word=False, full=False):
         if full:
             v_size = len(self.properties)
+        elif one_word:
+            v_size = 1
         else:
-            if one_word:
-                v_size = 1
-            else:
-                v_size = np.random.randint(1, len(self.properties)+1)
+            v_size = np.random.randint(1, len(self.properties)+1)
 
         _properties = np.arange(len(self.properties))
         np.random.shuffle(_properties)
@@ -141,8 +145,9 @@ class WordVector(object):
                     vision_data[i] = f(word)
                     # adjustment for equal representation of words "big" and "small".
                     # also taking into account 'full' argument.
-                    if (word == "small" or word == "big") and 0.25 < vision_data[i][0] <= 0.75 and full is False and one_word is False:
-                        string_vector[self.vocabulary[word]] = 0
+                    if not full and not one_word:
+                        if (word == "small" or word == "big") and 0.25 < vision_data[i][0] <= 0.75:
+                            string_vector[self.vocabulary[word]] = 0
                     break
 
         for i in range(len(vision_data)):
@@ -152,11 +157,37 @@ class WordVector(object):
 
         self.string_vector = string_vector
         self.vision_data = vision_data
+        if np.sum(string_vector) > 0:
+            self.input_pairs_history.append((string_vector, vision_data))
         return string_vector, vision_data
 
 
 if __name__ == "__main__":
     word_vector = WordVector()
     a, b = word_vector.generate_new_input_pair()
-    word_vector.generate_string_from_vector(a)
-    exit()
+
+    lengths = Counter()
+    categories = Counter()
+    words = Counter()
+    cat = ["positions", "sizes", "colors", "types"]
+    np.random.seed(0)
+
+    i = 0
+    while i < 1000:
+        a, _ = word_vector.generate_new_input_pair()
+        w = word_vector.generate_string_from_vector(a).split(" ")
+        if len(w) == 1 and w[0] == "":
+            continue
+        lengths[len(w)] += 1
+        for _w in w:
+            words[_w] += 1
+
+        for j, _c in enumerate(cat):
+            for _w in w:
+                if _w in set(word_vector.properties[j][0]):
+                    categories[_c] += 1
+                    break
+        i += 1
+    print(lengths)
+    print(words)
+    print(categories)
