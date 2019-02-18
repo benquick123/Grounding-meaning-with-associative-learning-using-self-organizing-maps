@@ -18,3 +18,8 @@ Python version and libraries:
 
 - Code for plotting is not the most beautiful code I've ever written. Input reconstruction is also not very nice, but is manageable.
 - Naming in other code differs slightly from naming used in report. Language vector is for example sometimes word_vector and sometimes string_vector. Comments in the code are consistent, however.
+
+*Other notes*
+
+- SOM code is taken mostly from https://codesachin.wordpress.com/2015/11/28/self-organizing-maps-with-googles-tensorflow/
+- Logging utility is as found on https://github.com/pat-coady/trpo/blob/master/src/utils.py
