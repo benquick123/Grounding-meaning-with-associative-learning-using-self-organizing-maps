@@ -1,10 +1,22 @@
 import matplotlib.pyplot as plt
+from matplotlib import rcParams
 import pickle
 import numpy as np
+import os
+from datetime import datetime
 from data_generator import WordVector
 
+path = ""
+rcParams["font.family"] = "Latin Modern Roman"
 
-def show_organization(_c, plot_title):
+
+def show_organization(_c, plot_title, mode="show"):
+    """
+    plots SOM organizations.
+    """
+
+    plt.rcParams["figure.figsize"] = (2.5, 2.5)
+    plt.figure()
     if _c is None:
         _c = pickle.load(open("som_weights_1539871205.pickle", "rb"))[3]
 
@@ -21,10 +33,18 @@ def show_organization(_c, plot_title):
 
     plt.title(plot_title)
     plt.imshow(img)
-    plt.show()
+    if mode == "show":
+        plt.show()
+    if mode == "save":
+        plt.savefig(path + plot_title + "_organization.svg")
+        plt.close("all")
 
 
-def show_organization_multi(h, vocabulary, plot_dim, plot_title, som_dim=16, scale=True):
+def show_organization_multi(h, vocabulary, plot_dim, plot_title, som_dim=16, scale=True, mode="show"):
+    """
+    plots n plots that show Hebbian links strength for each word in vocabulary.
+    """
+    plt.rcParams["figure.figsize"] = (12, 5)
     f, subplts = plt.subplots(plot_dim[0], plot_dim[1], sharex='col', sharey='row')
     if scale:
         h = (h - np.min(h)) / (np.max(h) - np.min(h))
@@ -36,12 +56,21 @@ def show_organization_multi(h, vocabulary, plot_dim, plot_title, som_dim=16, sca
             img[int(k / som_dim)].append(row[k])
         subplts[i].imshow(img)
         subplts[i].set_title(vocabulary[i])
+        subplts[i].tick_params(axis="x", which="both", bottom=False, top=False, labelbottom=False)
+        subplts[i].tick_params(axis="y", which="both", right=False, left=False, labelleft=False)
 
-    plt.suptitle(plot_title, y=0.58)
-    plt.show()
+    plt.suptitle(plot_title, y=0.65)
+    if mode == "show":
+        plt.show()
+    if mode == "save":
+        plt.savefig((path + plot_title + "_organization_multi.svg").replace(">", ""))
+        plt.close("all")
 
 
-def show_organization_multi_v2(h, plot_dim, plot_title, voc_dim=16, scale=True):
+def show_organization_multi_v2(h, plot_dim, plot_title, voc_dim=16, scale=True, mode="show"):
+    """
+    plots m*n plots that show activations of words from each cell in SOM.
+    """
     plt.rcParams["figure.figsize"] = (10, 10)
     f, subplts = plt.subplots(plot_dim[0], plot_dim[1], sharex='col', sharey='row')
     if scale:
@@ -55,98 +84,111 @@ def show_organization_multi_v2(h, plot_dim, plot_title, voc_dim=16, scale=True):
         subplts[int(i / plot_dim[0]), i % plot_dim[0]].tick_params(axis="y", which="both", right=False, left=False, labelleft=False)
 
     plt.suptitle(plot_title, y=0.92)
-    plt.show()
+    if mode == "show":
+        plt.show()
+    if mode == "save":
+        plt.savefig((path + plot_title + "_organization_multi_v2.svg").replace(">", ""))
+        plt.close("all")
 
 
-def show_mapping_to_word_vector(h):
-    _hebbian_sums = np.sum(h)
-    # _hebbian_sums = h[128, :]
-    _hebbian_sums = (h - np.min(h)) / (np.max(h) - np.min(h))
-
-    print(_hebbian_sums.shape)
-    img = [[] for i in range(len(h))]
-    for i in range(len(h)):
-        for j in range(len(h[0])):
-            img[i].append([_hebbian_sums[i, j] for k in range(3)])
-
-    plt.imshow(img)
-    plt.show()
-
-
-def plot_SOMs(filename):
+def plot_SOMs(filename, mode="show"):
+    """
+    goes through all SOMs in specified filename and plots organizations.
+    """
     # PLOTTING SOMS
     _s = pickle.load(open(filename, "rb"))[0]
     _s = (_s + 1) / 2
-    show_organization(_s, "Position SOM")
+    show_organization(_s, "Position SOM", mode=mode)
+
     _s = pickle.load(open(filename, "rb"))[1]
-    show_organization(_s, "Size SOM")
+    show_organization(_s, "Size SOM", mode=mode)
     _s = pickle.load(open(filename, "rb"))[2]
-    show_organization(_s, "Color SOM")
+    show_organization(_s, "Color SOM", mode=mode)
     _s = pickle.load(open(filename, "rb"))[3]
-    show_organization(_s, "Shapes SOM")
+    show_organization(_s, "Type SOM", mode=mode)
 
 
-def plot_WM(filename):
+def plot_WM(filename, mode="show"):
+    """
+    goes through W-->M Hebbian links for all categories.
+    it plots both 1x16, as well as 16x16 graphs.
+    """
     word_vector = WordVector()
     # PLOTTING W --> M
     _h = pickle.load(open(filename, "rb"))[0]
     _h_WM = _h[0]
-    show_organization_multi(_h_WM, word_vector.reverse_dict, (1, 16), "W --> M positions plot")
-    show_organization_multi_v2(_h_WM.transpose(), (16, 16), "W --> M positions plot")
+    show_organization_multi(_h_WM, word_vector.reverse_dict, (1, 16), "L --> V positions plot", mode=mode)
+    show_organization_multi_v2(_h_WM.transpose(), (16, 16), "L --> V positions plot", mode=mode)
 
     _h = pickle.load(open(filename, "rb"))[1]
     _h_WM = _h[0]
-    show_organization_multi(_h_WM, word_vector.reverse_dict, (1, 16), "W --> M sizes plot")
-    show_organization_multi_v2(_h_WM.transpose(), (16, 16), "W --> M sizes plot")
+    show_organization_multi(_h_WM, word_vector.reverse_dict, (1, 16), "L --> V sizes plot", mode=mode)
+    show_organization_multi_v2(_h_WM.transpose(), (16, 16), "L --> V sizes plot", mode=mode)
 
     _h = pickle.load(open(filename, "rb"))[2]
     _h_WM = _h[0]
-    show_organization_multi(_h_WM, word_vector.reverse_dict, (1, 16), "W --> M colors plot")
-    show_organization_multi_v2(_h_WM.transpose(), (16, 16), "W --> M colors plot")
+    show_organization_multi(_h_WM, word_vector.reverse_dict, (1, 16), "L --> V colors plot", mode=mode)
+    show_organization_multi_v2(_h_WM.transpose(), (16, 16), "L --> V colors plot", mode=mode)
 
     _h = pickle.load(open(filename, "rb"))[3]
     _h_WM = _h[0]
-    show_organization_multi(_h_WM, word_vector.reverse_dict, (1, 16), "W --> M shapes plot")
-    show_organization_multi_v2(_h_WM.transpose(), (16, 16), "W --> M shapes plot")
+    show_organization_multi(_h_WM, word_vector.reverse_dict, (1, 16), "L --> V types plot", mode=mode)
+    show_organization_multi_v2(_h_WM.transpose(), (16, 16), "L --> V types plot", mode=mode)
 
 
-def plot_MW(filename):
+def plot_MW(filename, mode="show"):
+    """
+    plots M--W Hebbian links in both 1x16 and 16x16 formats.
+    """
     word_vector = WordVector()
     # PLOTTING M --> W
     _h = pickle.load(open(filename, "rb"))[0]
     _h_MW = _h[1]
-    show_organization_multi(_h_MW.transpose(), word_vector.reverse_dict, (1, 16), "M --> W positions plot")
-    show_organization_multi_v2(_h_MW, (16, 16), "M --> W positions plot")
+    show_organization_multi(_h_MW.transpose(), word_vector.reverse_dict, (1, 16), "V --> L positions plot", mode=mode)
+    show_organization_multi_v2(_h_MW, (16, 16), "V --> L positions plot", mode=mode)
 
     _h = pickle.load(open(filename, "rb"))[1]
     _h_MW = _h[1]
-    show_organization_multi(_h_MW.transpose(), word_vector.reverse_dict, (1, 16), "M --> W sizes plot")
-    show_organization_multi_v2(_h_MW, (16, 16), "M --> W sizes plot")
+    show_organization_multi(_h_MW.transpose(), word_vector.reverse_dict, (1, 16), "V --> L sizes plot", mode=mode)
+    show_organization_multi_v2(_h_MW, (16, 16), "V --> L sizes plot", mode=mode)
 
     _h = pickle.load(open(filename, "rb"))[2]
     _h_MW = _h[1]
-    show_organization_multi(_h_MW.transpose(), word_vector.reverse_dict, (1, 16), "M --> W colors plot")
-    show_organization_multi_v2(_h_MW, (16, 16), "M --> W colors plot")
+    show_organization_multi(_h_MW.transpose(), word_vector.reverse_dict, (1, 16), "V --> L colors plot", mode=mode)
+    show_organization_multi_v2(_h_MW, (16, 16), "V --> L colors plot", mode=mode)
 
     _h = pickle.load(open(filename, "rb"))[3]
     _h_MW = _h[1]
-    show_organization_multi(_h_MW.transpose(), word_vector.reverse_dict, (1, 16), "M --> W shapes plot")
-    show_organization_multi_v2(_h_MW, (16, 16), "M --> W shapes plot")
+    show_organization_multi(_h_MW.transpose(), word_vector.reverse_dict, (1, 16), "V --> L types plot", mode=mode)
+    show_organization_multi_v2(_h_MW, (16, 16), "V --> L types plot", mode=mode)
 
 
-def entropy_plotting(filename):
+def entropy_plotting(filename, title="", mode="show"):
+    """ plots entropies. mainly used for plotting WXC table """
+
+    plt.rcParams["figure.figsize"] = (6, 3)
+    plt.figure()
     img = [[] for j in range(4)]
     entropy_weights = pickle.load(open(filename, "rb"))
     for i, w in enumerate(entropy_weights):
         for _w in w:
             img[i].append([_w, _w, _w])
+    plt.xticks(np.arange(0, len(img[0])), np.arange(0, len(img[0])))
     plt.imshow(img)
-    plt.show()
+    plt.title(title)
+    if mode == "show":
+        plt.show()
+    if mode == "save":
+        plt.savefig(path + "wxc_entropy.svg")
+        plt.close("all")
 
 
-def type_plotting(filename):
+def type_plotting(filename, title="", mode="show"):
+    """ plotting of LXP tables """
+
+    plt.rcParams["figure.figsize"] = (10, 3)
     type_weights = pickle.load(open(filename, "rb"))
-    f, subplts = plt.subplots(nrows=len(type_weights))
+    f, subplts = plt.subplots(ncols=len(type_weights), sharex='col', sharey='row')
 
     for i in range(4):
         v = type_weights[i]
@@ -155,91 +197,79 @@ def type_plotting(filename):
             a = np.array(list(el) * 3).reshape((-1, 4)).transpose()
             img.append(a)
         subplts[i].imshow(img)
+        subplts[i].set_title("phrase length " + str(i+1))
+    plt.suptitle(title, y=0.92)
 
-    plt.show()
+    if mode == "show":
+        plt.show()
+    if mode == "save":
+        plt.savefig(path + "lxp_tables.svg")
+        plt.close("all")
 
 
-def plot_per_epoch(data, labels, title="", ylim=None):
+def plot_per_epoch(data, labels, title="", ylim=None, mode="show", path="Plotting/"):
+    """ function for plotting changing values through time """
+    plt.rcParams["figure.figsize"] = (9, 5)
     for row, label in zip(data, labels):
-        r = list(range(len(row)))
+        r = np.array(range(len(row)))*20
         plt.plot(r, row, label=label)
     plt.title(title)
-    plt.xlabel("epoch #")
+    plt.xlabel("episode number")
     if ylim is not None:
         plt.ylim(ylim)
     else:
         plt.ylim(0)
-    plt.xlim(0, len(data[0]))
+    plt.xlim(0, len(data[0])*20)
     plt.legend()
-    plt.show()
+
+    if mode == "show":
+        plt.show()
+    if mode == "save":
+        plt.savefig(path + title + "_per_epoch.svg")
+        plt.close("all")
 
 
-def plot_multiple_per_epoch(filename):
-    som_errors, hebb_dist, wm_entropies, mw_entropies, wxc_learn, txp_learn = pickle.load(open(filename, "rb"))
-    labels = ["position", "size", "color", "type"]
+def plot_data_distributions(mode="show"):
+    """ plotting of data generation statistics """
+    labels = ["left", "right", "top", "bottom", "big", "small", "red", "green", "blue", "purple", "black", "white", "cube", "sphere", "cylinder", "cone"]
+    data1 = np.loadtxt("Plotting/data_distr_1.csv")
+    barwidth = 0.3
+    plt.rcParams["figure.figsize"] = (11, 5)
+    plt.bar(np.arange(0, len(data1[0])), data1[0], width=barwidth, label="Non-tweaked probability  of size words")
+    plt.bar(np.arange(0, len(data1[1])) + barwidth, data1[1], width=barwidth, label="Reduced probability of size words (p=0.5)")
+    plt.xticks(np.arange(0, len(data1[1])) + (barwidth / 2), labels)
+    plt.legend()
 
-    # SOM errors
-    plot_per_epoch(som_errors, labels, "Average error per epoch (1000 epochs)")
-
-    # HEBB distances
-    plot_per_epoch(hebb_dist, labels, "Distance between W -> M and M -> W hebbian weights")
-
-    # HEBB W-M entropies
-    wm_entropies = [[np.mean(wm_entropies_cat)
-                     for wm_entropies_cat in wm_entropies[i]] for i in range(len(wm_entropies))]
-    # wm_entropies = [[entropy([wm_entropies_cat])
-    #                  for wm_entropies_cat in wm_entropies[i]] for i in range(len(wm_entropies))]
-    plot_per_epoch(wm_entropies, labels, "W -> M average entropy", ylim=(0.75, 1.0))
-
-    # HEBB M-W entropies
-    mw_entropies = [[np.mean(mw_entropies_cat)
-                     for mw_entropies_cat in mw_entropies[i]] for i in range(len(mw_entropies))]
-    # mw_entropies = [[entropy([mw_entropies_cat])
-    #                  for mw_entropies_cat in mw_entropies[i]] for i in range(len(mw_entropies))]
-    plot_per_epoch(mw_entropies, labels, "M --> W average entropy", ylim=(0.75, 1.0))
-
-    # WORD_x_CATEGORY entropies
-    wxc_learn = np.array(wxc_learn)
-    # wxc_learn = [entropy(d) for d in wxc_learn[np.arange(0, wxc_learn.shape[0], 4).tolist()]]
-    wxc_learn = [entropy(d) for d in wxc_learn]
-    plot_per_epoch([wxc_learn], ["w_x_c average entropies"], title="Bootstraping (word x category) average entropies",
-                   ylim=(0.6, 1.0))
-
-    # TYPE_x_PROBABILITY entropies
-    txp_learn = np.array(txp_learn)
-    # txp_learn = txp_learn[np.arange(0, txp_learn.shape[0], 4).tolist()]
-    # _txp_learn = [[], [], [], []]
-    txp_learn = np.array([[entropy(epoch[i]) for i in range(len(epoch))] for epoch in txp_learn]).transpose()
-    plot_per_epoch(txp_learn, ["phrase length: 1", "phrase length: 2", "phrase length: 3", "phrase length: 4"],
-                   title="Bootstraping (type x probability) average entropies", ylim=(0.4, 1.0))
-
-
-
-def entropy(data):
-    data = np.array(data)
-    a = []
-    for row in data:
-        a.append(-np.sum(row * (np.log(row) / np.log(len(row)))))
-    return np.mean(a)
+    print("Data mean (old vs. new):")
+    print(np.mean(data1, axis=1), np.std(data1, axis=1))
+    if mode == "show":
+        plt.show()
+    if mode == "save":
+        plt.savefig(path + "data_probabilities.svg")
 
 
 if __name__ == "__main__":
-    hebb_f = "weights/hebb_weights_1544576700.pickle"
-    som_f = "weights/som_weights_1544576700.pickle "
-    type_f = "weights/type_x_probability_1544576700.pickle"
-    entropy_f = "weights/word_x_category_1544576700.pickle"
-    error_f = "errors_w_bootstraping_1544576700.pickle"
+    # initializes matplotlib parameters and speficies filenames.
+    rcParams["font.family"] = "Latin Modern Roman"
+    mode = "save"
+    hebb_f = "log-files/Jan-23_17.59.34_700_boot/Episodes/Episode 699/hebb_weights.pickle"
+    som_f = "log-files/Jan-23_17.59.34_700_boot/Episodes/Episode 699/som_weights.pickle"
+    type_f = "log-files/Jan-23_17.59.34_700_boot/Episodes/Episode 699/length_x_position.pickle"
+    entropy_f = "log-files/Jan-23_17.59.34_700_boot/Episodes/Episode 699/word_x_category.pickle"
 
-    # plot_multiple_per_epoch(error_f)
-    # exit()
+    # creates plotting directory.
+    if mode == "save":
+        path = "Plotting/" + hebb_f.split("/")[1] + "/"
+        os.makedirs(path, exist_ok=True)
 
-    # entropy_plotting(entropy_f)
-    # type_plotting(type_f)
-    # exit()
+    # calls plotting functions.
+    plot_data_distributions(mode=mode)
 
-    plot_SOMs(som_f)
-    exit()
-    plot_WM(hebb_f)
-    plot_MW(hebb_f)
+    entropy_plotting(entropy_f, "WXC table", mode)
+    type_plotting(type_f, "LXP tables", mode)
+
+    plot_SOMs(som_f, mode)
+    plot_WM(hebb_f, mode)
+    plot_MW(hebb_f, mode)
 
     exit()

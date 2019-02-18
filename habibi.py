@@ -6,15 +6,19 @@ from plotting import show_organization
 
 
 class Hebbian(object):
+    def __init__(self, word_vector, som, n_iterations=10, n_episodes=100, alpha=None):
+        """
+        initializes Hebbian links and defines necessary Tensorflow operations.
 
-    _trained = False
-    word_type_matrix = None
-    n_instances = 4
+        word_vector: WordVector instance.
+        som: SOM object.
+        n_iterations: number of iterations when self.train() is used.
+        n_episodes: number of episodes for appropriate decrease of learning rates.
+        alpha: initial learnign rate.
+        """
 
-    def __init__(self, word_vector, som, instance_number, n_iterations=10, n_episodes=100, alpha=None, sigma=None, activation_map_constant=1.0):
         self.som = som
         self.word_vector = word_vector
-        self.instance_number = instance_number
 
         self.n_iterations = abs(int(n_iterations))
         self.n_episodes = n_episodes
@@ -23,46 +27,35 @@ class Hebbian(object):
         else:
             self.alpha = alpha
 
-        if sigma is None:
-            self.sigma = (self.som.m * self.som.n) / 2
-        else:
-            self.sigma = sigma
-
         # initialize session to None, set it to actual session later.
         self._sess = None
 
+        # initialize hebbian links to 0.
         self._hebbian_weights_WM = tf.Variable(tf.zeros([self.word_vector.dim, self.som.m*self.som.n]), dtype=tf.float32)
         self._hebbian_weights_MW = tf.Variable(tf.zeros([self.som.m*self.som.n, self.word_vector.dim]), dtype=tf.float32)
 
-        # initialize placeholders (inputs)
+        # initialize placeholders: inputs and category probability multiplier for bootstrapping.
         self.input_vect1 = tf.placeholder("float", [self.word_vector.dim])
         self.input_vect2 = tf.placeholder("float", [self.som.dim])
 
         self.input_iter = tf.placeholder("float")
         self.category_probability = tf.placeholder("float")
 
-        # find bmu for SOM (location, no index needed)
-        bmu_loc = som.get_bmu_location(self.input_vect2)
 
-        # compute learning rate (based on current iteration) and adjust alpha & sigma accordingly
+        # compute learning rate (based on current iteration) and adjust alpha accordingly
         # also added: _alpha reflects probability that input (just one word) is of certain type
         learning_rate = tf.subtract(1.0, tf.div(self.input_iter, self.n_episodes))
         _alpha = tf.multiply(tf.multiply(self.alpha, learning_rate), self.category_probability)
-        # _alpha = tf.multiply(self.alpha, learning_rate)             # COMMENT THIS!!!
-        _sigma = tf.multiply(self.sigma, learning_rate)
-
-        # calculate distances from bmu2, then calc neighbourhood function (e^(-(distance^2 / sigma^2)))
-        # and finally calc learning rate function (includes alpha)
-        bmu_distances_squared = tf.cast(tf.reduce_sum(tf.pow(tf.subtract(self.som.location_vects, tf.stack([bmu_loc for i in range(self.som.m*self.som.n)])), 2), 1), tf.float32)
-        neighbourhood_func = tf.exp(tf.negative(tf.div(bmu_distances_squared, tf.pow(_sigma, 2))))
-        learning_rate = tf.multiply(_alpha, neighbourhood_func)
+        # USE THIS ONLY WHEN TESTING TRAINING WITHOUT BOOTSTRAPPING.
+        # _alpha = tf.multiply(self.alpha, learning_rate)             
 
         # get activation map
         som_activation_map = som.get_activations(self.input_vect2)
 
         # calculate weight delta (learning rate * som_activations * word_vector) and add it to previous values
-        self._weights_delta_op = tf.multiply(tf.reshape(self.input_vect1, (self.word_vector.dim, 1)), tf.reshape(tf.multiply(learning_rate, som_activation_map), (1, self.som.m*self.som.n)))
+        self._weights_delta_op = tf.multiply(tf.reshape(self.input_vect1, (self.word_vector.dim, 1)), tf.reshape(tf.multiply(_alpha, som_activation_map), (1, self.som.m*self.som.n)))
 
+        # placeholder for hebbian weigths, followed by normalization.
         self._weights_delta = tf.placeholder("float", [self.word_vector.dim, self.som.m*self.som.n])
         # add it to W --> M hebbian links
         new_hebbian_weights_WM = tf.add(self._hebbian_weights_WM, self._weights_delta)
@@ -87,6 +80,15 @@ class Hebbian(object):
         self._error_op = tf.sqrt(tf.reduce_sum(tf.pow(tf.subtract(self._hebbian_weights_WM, tf.transpose(self._hebbian_weights_MW)), 2)))
 
     def train(self, inputs1, inputs2, episode_no, train_som=False):
+        """
+        training pipeline not used in the most recent implementation. can additionally train a SOM too.
+
+        inputs1: list of language inputs.
+        inputs2: list of vision inputs.
+        episode_no: current episode number.
+        train_som: whether to train SOM also.
+        """
+
         hebb_result = None
         som_result = None
         hebb_error = []
@@ -114,16 +116,24 @@ class Hebbian(object):
         return hebb_error, hebb_result
 
     def fit(self, input1, input2, category_probability, curr_iteration):
+        """
+        fits hebbian links for one iteration given the inputs.
+
+        input1: language input.
+        input2: vision input.
+        category_probability: (float) category probability for this position as given by length_x_position.
+        curr_iteration: current episode number.
+        """
+
+        # calculates weights delta first.
         weights_delta = self._sess.run(self._weights_delta_op, feed_dict={self.input_vect1: input1, self.input_vect2: input2, self.input_iter: curr_iteration, self.category_probability: category_probability})
+        # normalizes depending on the weight type.
         result_WM = self._sess.run(self._training_WM_op, feed_dict={self._weights_delta: weights_delta})
         result_MW = self._sess.run(self._training_MW_op, feed_dict={self._weights_delta: weights_delta})
+        # calculates error and returns everything
         error = self._sess.run(self._error_op)
-        # entropy = self._sess.run(self._update_word_type_matrix_op)
         return error, (result_WM, result_MW)
 
 
 if __name__ == "__main__":
-    tf.enable_eager_execution()
-    graph = tf.Graph()
-
-    # a = Hebbian(SOM(5, 5, 3, graph), WordVector(), graph)
+    pass

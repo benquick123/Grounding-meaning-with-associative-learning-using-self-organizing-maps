@@ -1,5 +1,5 @@
-
 #%%
+# import things
 from plotting import *
 import pandas as pd
 get_ipython().magic('matplotlib inline')
@@ -8,9 +8,10 @@ plt.rcParams["figure.figsize"] = (9, 5)
 
 train_type = ["position", "size", "color", "shape"]
 _train_type = ["position", "size", "color", "type"]
-log_path = "log-files/Jan-22_20.11.33_200_no_boot/log.csv"
+log_path = "log-files/Jan-23_17.59.34_700_boot/log.csv"
 save_path = "Plotting/" + log_path.split("/")[1] + "/"
 dataframe = pd.read_csv(log_path)
+mode = "show"
 
 
 #%%
@@ -25,7 +26,7 @@ for i, (e, u) in enumerate(zip(errors, underscores)):
         labels = ["_" + l for l in labels]
     to_plot = [dataframe[l] for l in labels]
     labels = [tr + " " + e for tr in _train_type]
-    plot_per_epoch(to_plot, labels, ylim=ylims[i], mode="show", path=save_path + errors[i])
+    plot_per_epoch(to_plot, labels, ylim=ylims[i], mode=mode, path=save_path + errors[i])
 
 
 #%%
@@ -51,11 +52,11 @@ for i, tr in enumerate(train_type):
 
 to_plot_mw = [dataframe[l] for l in l_mw]
 l_mw = [l + " V --> L entropies" for l in _train_type]
-plot_per_epoch(to_plot_mw, l_mw, ylim=(0.7, 1.001), mode="show", path=save_path + "mw_entropies")
+plot_per_epoch(to_plot_mw, l_mw, ylim=(0.7, 1.001), mode=mode, path=save_path + "mw_entropies")
 
 to_plot_wm = [dataframe[l] for l in l_wm_1]
 l_wm_1 = [l + " L --> V entropies" for l in _train_type]
-plot_per_epoch(to_plot_wm, l_wm_1, ylim=(0.7, 1.001), mode="show", path=save_path + "wm_entropies")
+plot_per_epoch(to_plot_wm, l_wm_1, ylim=(0.7, 1.001), mode=mode, path=save_path + "wm_entropies")
 
 
 #%%
@@ -65,9 +66,9 @@ l1 = [tr + " word_x_category entropy" for tr in train_type]
 l2 = ["length: " + str(i+1) + " length_x_position entropy" for i in range(4)]
 to_plot = [dataframe[l] for l in l1]
 l1 = [tr + " word_x_category entropy" for tr in _train_type]
-plot_per_epoch(to_plot, l1, ylim=ylim, mode="show", path=save_path + "wxc")
+plot_per_epoch(to_plot, l1, ylim=ylim, mode=mode, path=save_path + "wxc")
 to_plot = [dataframe[l] for l in l2]
-plot_per_epoch(to_plot, l2, ylim=ylim, mode="show", path=save_path + "lxp")
+plot_per_epoch(to_plot, l2, ylim=ylim, mode=mode, path=save_path + "lxp")
 
 
 #%%

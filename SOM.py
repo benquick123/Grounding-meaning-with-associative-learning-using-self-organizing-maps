@@ -8,9 +8,6 @@ class SOM(object):
     and linearly decreasing learning rate.
     """
  
-    # To check if the SOM has been trained
-    _trained = False
- 
     def __init__(self, m, n, dim, c=1.0, n_iterations=10, n_episodes=100, alpha=None, sigma=None):
         """
         Initializes all necessary components of the TensorFlow
@@ -83,7 +80,6 @@ class SOM(object):
         # wrt BMU.
         bmu_distance_squares = tf.reduce_sum(tf.pow(tf.subtract(self.location_vects, tf.stack([bmu_loc for i in range(m*n)])), 2), 1)
         neighbourhood_func = tf.exp(tf.negative(tf.div(tf.cast(bmu_distance_squares, "float32"), tf.pow(_sigma_op, 2))))
-        # neighbourhood_func = tf.exp(tf.multiply(tf.negative(self.c), bmu_distance_squares))
         learning_rate_op = tf.multiply(_alpha_op, neighbourhood_func)
 
         # Finally, the op that will use learning_rate_op to update
@@ -99,6 +95,9 @@ class SOM(object):
  
     @staticmethod
     def _neuron_locations(m, n):
+        """
+        iterator function that yields positions of SOM units.
+        """
         for i in range(m):
             for j in range(n):
                 yield np.array([i, j])
@@ -122,7 +121,7 @@ class SOM(object):
 
     def get_bmu_index(self, vect_input):
         """
-        Basically calculates the Euclidean distance between every
+        Calculates the Euclidean distance between every
         neuron's weightage vector and the input, and returns the
         index of the neuron which gives the least value
         """
@@ -163,6 +162,13 @@ class SOM(object):
         return error, result
 
     def fit(self, input_vect, curr_iteration):
+        """
+        fits the SOM given the current iteration based on input vector.
+
+        input_vect: vision input vector.
+        curr_iteration: current episode number.
+        """
+
         result = self._sess.run(self._training_op, feed_dict={self.vect_input: input_vect, self.iter_input: curr_iteration})
         error = self._sess.run(self._error_op, feed_dict={self.vect_input: input_vect})
         return error, result

@@ -1,0 +1,7 @@
+.vscode/*
+log-files/*
+Papers/*
+Report/*
+Plotting/*
+__pycache__/*
+.history/*
