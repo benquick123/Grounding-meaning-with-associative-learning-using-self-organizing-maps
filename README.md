@@ -23,3 +23,7 @@ Python version and libraries:
 
 - SOM code is taken mostly from https://codesachin.wordpress.com/2015/11/28/self-organizing-maps-with-googles-tensorflow/
 - Logging utility is as found on https://github.com/pat-coady/trpo/blob/master/src/utils.py
+
+*References*
+
+- Fele, B., & Takáč, M. (2019). A connectionist model of acquisition of noun phrases with syntactic bootstrapping, Kognícia a umelý život, Bratislava, May 2019. Bratislava, Slovakia: Univerzita Komenského v Bratislave.
